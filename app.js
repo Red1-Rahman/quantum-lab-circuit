@@ -3,6 +3,7 @@ let blochSphere = null;
 let mainBlochSphere = null;
 let probabilityChart = null;
 let selectedGate = null;
+let selectedQubit = 0;
 let currentLang = "qiskit";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -118,6 +119,9 @@ function setupToolbar() {
   document.getElementById("remove-qubit")?.addEventListener("click", () => {
     if (circuit.numQubits > 1) {
       circuit.removeQubit();
+      if (selectedQubit >= circuit.numQubits) {
+        selectedQubit = circuit.numQubits - 1;
+      }
       renderCircuit();
       showNotification("Qubit removed", "info");
     } else {
@@ -152,32 +156,17 @@ function setupGateDragDrop() {
 
     item.addEventListener("click", () => {
       const gateName = item.dataset.gate;
-      addGateToCircuit(gateName, 0);
+      addGateToCircuit(gateName, selectedQubit);
     });
   });
 
-  const circuitCanvas = document.getElementById("circuit-canvas");
-  if (circuitCanvas) {
-    const qubitRows = circuitCanvas.querySelectorAll(".qubit-row");
+}
 
-    qubitRows.forEach((row, qubitIndex) => {
-      row.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        row.classList.add("drag-over");
-      });
-
-      row.addEventListener("dragleave", () => {
-        row.classList.remove("drag-over");
-      });
-
-      row.addEventListener("drop", (e) => {
-        e.preventDefault();
-        row.classList.remove("drag-over");
-        const gateName = e.dataTransfer.getData("text/plain");
-        addGateToCircuit(gateName, qubitIndex);
-      });
-    });
-  }
+function selectQubit(index) {
+  selectedQubit = index;
+  document.querySelectorAll('.qubit-row').forEach((row) => {
+    row.classList.toggle('selected-qubit', parseInt(row.dataset.qubit) === index);
+  });
 }
 
 function addGateToCircuit(gateName, qubitIndex) {
@@ -187,7 +176,10 @@ function addGateToCircuit(gateName, qubitIndex) {
     circuit.addGate(gateName, targetQubit, controlQubit);
   } else if (gateName === "Toffoli") {
     if (circuit.numQubits >= 3) {
-      circuit.addGate(gateName, 2, 0, 1);
+      const target = qubitIndex;
+      const ctrl1 = (qubitIndex + 1) % circuit.numQubits;
+      const ctrl2 = (qubitIndex + 2) % circuit.numQubits;
+      circuit.addGate(gateName, target, ctrl1, ctrl2);
     } else {
       showNotification("Toffoli gate requires at least 3 qubits", "warning");
       return;
@@ -239,6 +231,15 @@ function renderCircuit() {
       const gateName = e.dataTransfer.getData("text/plain");
       addGateToCircuit(gateName, i);
     });
+
+    row.addEventListener("click", (e) => {
+      if (e.target.closest('.placed-gate')) return;
+      selectQubit(i);
+    });
+
+    if (i === selectedQubit) {
+      row.classList.add("selected-qubit");
+    }
 
     circuitCanvas.appendChild(row);
   }
@@ -690,6 +691,15 @@ style.textContent = `
     .drag-over {
         background: rgba(0, 245, 255, 0.1) !important;
         border-color: var(--accent-cyan) !important;
+    }
+    
+    .selected-qubit {
+        background: rgba(0, 245, 255, 0.05);
+        border-left: 3px solid #00f5ff;
+    }
+    
+    .selected-qubit .qubit-label {
+        color: #00f5ff;
     }
     
     .dragging {
